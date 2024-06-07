@@ -1,5 +1,6 @@
 import os.path
 
+import sys
 
 try:
     # betterproto[compiler] specific dependencies
@@ -13,7 +14,8 @@ except ImportError as err:
         "Please ensure that you've installed betterproto as "
         '`pip install "betterproto[compiler]"` so that compiler dependencies '
         "are included."
-        "\033[0m"
+        "\033[0m",
+        file=sys.stderr,
     )
     raise SystemExit(1)
 
