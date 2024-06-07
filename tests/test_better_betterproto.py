@@ -17,10 +17,7 @@ from tests.output_reference.simple import simple_pb2
 
 
 class OurTest:
-    def __init__(
-        self,
-        field: int = 0
-    ) -> None:
+    def __init__(self, field: int = 0) -> None:
         self.instance = simple_pb2.Test(field=field)
 
     @property
@@ -28,11 +25,29 @@ class OurTest:
         return self.instance.field
 
     @field.setter
-    def field(self, field: int) -> None:
-        self.instance.field = field
+    def field(self, value: int) -> None:
+        self.instance.field = value
+
+    @property
+    def optional_field(self) -> int | None:
+        if not self.instance.HasField("optional_field"):
+            return None
+
+        return self.instance.optional_field
+
+    @optional_field.setter
+    def optional_field(self, value: int) -> None:
+        self.instance.optional_field = value
 
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
+
+    @classmethod
+    def parse(cls, binary_payload: bytes) -> "OurTest":
+        result = cls()
+        result.instance.ParseFromString(binary_payload)
+
+        return result
 
 
 def test_serializes_correctly():
@@ -43,3 +58,17 @@ def test_serializes_correctly():
     print(instance.field)
 
     assert google_serialized == serialized
+
+
+def test_handles_optional_fields():
+    google_serialized_optional_set = simple_pb2.Test().SerializeToString()
+    message_optional_set = OurTest.parse(google_serialized_optional_set)
+
+    assert message_optional_set.optional_field is None
+
+    google_serialized_optional_set = simple_pb2.Test(
+        optional_field=123
+    ).SerializeToString()
+    message_optional_set = OurTest.parse(google_serialized_optional_set)
+
+    assert 123 == message_optional_set.optional_field

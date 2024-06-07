@@ -1,3 +1,4 @@
 {
-  "field": "123"
+  "field": "123",
+  "optionalField": "234"
 }
