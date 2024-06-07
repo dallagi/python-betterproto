@@ -5,4 +5,11 @@ package simple;
 message Test {
   int64 field = 1;
   optional int64 optional_field = 2;
+  TestEnum enum_field = 3;
+}
+
+enum TestEnum {
+  UNSPECIFIED = 0;
+  ONE = 1;
+  TWO = 2;
 }

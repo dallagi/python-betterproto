@@ -1,4 +1,5 @@
 {
   "field": "123",
-  "optionalField": "234"
+  "optionalField": "234",
+  "enumField": "ONE"
 }

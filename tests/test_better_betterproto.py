@@ -1,4 +1,5 @@
-from tests.output_betterproto.simple import Test
+from enum import Enum, auto
+from tests.output_betterproto.simple import Test, TestEnum
 
 from tests.output_reference.simple import simple_pb2
 
@@ -16,9 +17,22 @@ from tests.output_reference.simple import simple_pb2
 # Mypy type checking
 
 
+class OurTestEnum(Enum):
+    UNSPECIFIED = 0
+    ONE = 1
+    TWO = 2
+
+
 class OurTest:
-    def __init__(self, field: int = 0) -> None:
-        self.instance = simple_pb2.Test(field=field)
+    def __init__(
+        self,
+        field: int = 0,
+        optional_field: int | None = None,
+        enum_field: OurTestEnum = OurTestEnum.UNSPECIFIED,
+    ) -> None:
+        self.instance = simple_pb2.Test(field=field, enum_field=enum_field.value)
+        if optional_field is not None:
+            self.instance.optional_field = optional_field
 
     @property
     def field(self) -> int:
@@ -39,6 +53,14 @@ class OurTest:
     def optional_field(self, value: int) -> None:
         self.instance.optional_field = value
 
+    @property
+    def enum_field(self) -> OurTestEnum:
+        return OurTestEnum(self.instance.enum_field)
+
+    @enum_field.setter
+    def enum_field(self, value: OurTestEnum) -> None:
+        self.instance.enum_field = value.value
+
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
@@ -51,11 +73,8 @@ class OurTest:
 
 
 def test_serializes_correctly():
-    serialized = bytes(Test(field=123))
+    serialized = bytes(OurTest(field=123))
     google_serialized = simple_pb2.Test(field=123).SerializeToString()
-
-    instance = OurTest()
-    print(instance.field)
 
     assert google_serialized == serialized
 
@@ -72,3 +91,17 @@ def test_handles_optional_fields():
     message_optional_set = OurTest.parse(google_serialized_optional_set)
 
     assert 123 == message_optional_set.optional_field
+
+
+def test_handles_enums():
+    serialized = bytes(OurTestEnum.ONE)
+    google_serialized = simple_pb2.TestEnum.ONE.to_bytes()
+
+    assert google_serialized == serialized
+
+    serialized = bytes(OurTest(enum_field=OurTestEnum.ONE))
+    google_serialized = simple_pb2.Test(
+        enum_field=simple_pb2.TestEnum.ONE
+    ).SerializeToString()
+
+    assert google_serialized == serialized
