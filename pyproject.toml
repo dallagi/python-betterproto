@@ -12,15 +12,17 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 black = { version = ">=23.1.0", optional = true }
-grpclib = "^0.4.1"
+grpclib = "^0.4.8rc1"
 importlib-metadata = { version = ">=1.6.0", python = "<3.8" }
 jinja2 = { version = ">=3.0.3", optional = true }
 python-dateutil = "^2.8"
 isort = {version = "^5.11.5", optional = true}
 typing-extensions = "^4.7.1"
 betterproto-rust-codec = { version = "0.1.1", optional = true }
+# used by grpclib, 6.0.4 is default but doesn't compile wit python 3.12
+multidict = "^6.0.5"
 
 [tool.poetry.group.dev.dependencies]
 asv = "^0.4.2"
