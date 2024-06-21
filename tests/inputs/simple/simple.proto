@@ -6,6 +6,10 @@ message Test {
   int64 field = 1;
   optional int64 optional_field = 2;
   TestEnum enum_field = 3;
+  oneof oneof_field {
+    int32 int_variant = 4;
+    string string_variant = 5;
+  }
 }
 
 enum TestEnum {

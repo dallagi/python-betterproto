@@ -1,5 +1,6 @@
 {
   "field": "123",
   "optionalField": "234",
-  "enumField": "ONE"
+  "enumField": "ONE",
+  "intVariant": 123
 }

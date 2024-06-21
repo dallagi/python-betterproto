@@ -5,6 +5,7 @@ from tests.output_reference.simple import simple_pb2
 
 
 # which_one_of
+# nested messages
 # Both binary & JSON serialization is built-in --> orjson
 # Enums
 # Dataclasses
@@ -58,6 +59,28 @@ class OurTest:
     def enum_field(self, value: OurTestEnum) -> None:
         self.instance.enum_field = value.value
 
+    @property
+    def int_variant(self) -> int | None:
+        if not self.instance.HasField("int_variant"):
+            return None
+
+        return self.instance.int_variant
+
+    @int_variant.setter
+    def int_variant(self, value: int) -> None:
+        self.instance.int_variant = value
+
+    @property
+    def string_variant(self) -> str | None:
+        if not self.instance.HasField("string_variant"):
+            return None
+
+        return self.instance.string_variant
+
+    @string_variant.setter
+    def string_variant(self, value: str) -> None:
+        self.instance.string_variant = value
+
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
@@ -97,3 +120,16 @@ def test_handles_enums():
     ).SerializeToString()
 
     assert google_serialized == serialized
+
+
+def test_can_get_and_set_oneof_fields():
+    google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    assert 123 == message.int_variant
+    assert None == message.string_variant
+
+    message.string_variant = "test"
+
+    assert None == message.int_variant
+    assert "test" == message.string_variant
