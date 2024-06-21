@@ -1,4 +1,6 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, Self
 import pytest
 
 from enum import Enum, auto
@@ -7,7 +9,6 @@ from tests.output_betterproto import simple as betterproto_simple_pb2
 from tests.output_reference.simple import simple_pb2
 
 
-# which_one_of
 # nested messages
 # Both binary & JSON serialization is built-in --> orjson
 # Enums
@@ -23,6 +24,37 @@ class OurTestEnum(Enum):
     ONE = 1
     TWO = 2
 
+class OurSibling:
+    def __init__(
+        self,
+        field: int = 0
+    ) -> None:
+        self.instance = simple_pb2.Sibling(field=field)
+
+    @classmethod
+    def from_instance(cls, instance: simple_pb2.Sibling) -> Self:
+        obj = cls.__new__(cls)
+        obj.instance = instance
+
+        return obj
+
+    @property
+    def field(self) -> int:
+        return self.instance.field
+
+    @field.setter
+    def field(self, value: int) -> None:
+        self.instance.field = value
+
+    def __bytes__(self) -> bytes:
+        return self.instance.SerializeToString()
+
+    @classmethod
+    def parse(cls, binary_payload: bytes) -> Self:
+        result = cls()
+        result.instance.ParseFromString(binary_payload)
+
+        return result
 
 class OurTest:
     def __init__(
@@ -30,10 +62,18 @@ class OurTest:
         field: int = 0,
         optional_field: int | None = None,
         enum_field: OurTestEnum = OurTestEnum.UNSPECIFIED,
+            # add other fields
     ) -> None:
         self.instance = simple_pb2.Test(field=field, enum_field=enum_field.value)
         if optional_field is not None:
             self.instance.optional_field = optional_field
+
+    @classmethod
+    def from_instance(cls, instance: simple_pb2.Test) -> Self:
+        obj = cls.__new__(cls)
+        obj.instance = instance
+
+        return obj
 
     @property
     def field(self) -> int:
@@ -84,22 +124,19 @@ class OurTest:
     def string_variant(self, value: str) -> None:
         self.instance.string_variant = value
 
-    # def __getattribute__(self, name: str, ) -> Any:
-    #     match name:
-    #         case "int_variant":
-    #             if not self.instance.HasField("int_variant"):
-    #                 raise AttributeError()
-    #             return self.int_variant
-    #         case "string_variant":
-    #             if not self.instance.HasField("string_variant"):
-    #                 raise AttributeError()
-    #             return self.string_variant
+    @property
+    def sibling(self) -> OurSibling:
+        return OurSibling.from_instance(self.instance.sibling)
+
+    @sibling.setter
+    def sibling(self, value: OurSibling) -> None:
+        self.instance.sibling.CopyFrom(value.instance)
 
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
     @classmethod
-    def parse(cls, binary_payload: bytes) -> "OurTest":
+    def parse(cls, binary_payload: bytes) -> Self:
         result = cls()
         result.instance.ParseFromString(binary_payload)
 
@@ -145,6 +182,7 @@ def test_can_get_and_set_oneof_fields():
     message.string_variant = "test"
     assert "test" == message.string_variant
 
+
 def test_raises_attribute_error_when_accessing_unset_oneof_fields():
     google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
     message = OurTest.parse(google_serialized)
@@ -155,6 +193,7 @@ def test_raises_attribute_error_when_accessing_unset_oneof_fields():
     message.string_variant = "test"
     with pytest.raises(AttributeError):
         message.int_variant
+
 
 def test_can_match_over_oneof_fields():
     google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
@@ -167,3 +206,15 @@ def test_can_match_over_oneof_fields():
             assert 123 == value
         case _:
             pytest.fail("Should have matched over int variant")
+
+def test_handles_nested_messages():
+    google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    assert 123 == message.sibling.field
+
+    message.sibling.field = 234
+    assert 234 == message.sibling.field
+
+    message.sibling = OurSibling(field=111)
+    assert 111 == message.sibling.field

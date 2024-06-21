@@ -2,5 +2,8 @@
   "field": "123",
   "optionalField": "234",
   "enumField": "ONE",
-  "intVariant": 123
+  "intVariant": 123,
+  "sibling": {
+    "field": 123
+  }
 }

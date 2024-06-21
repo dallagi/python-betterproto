@@ -10,10 +10,15 @@ message Test {
     int32 int_variant = 4;
     string string_variant = 5;
   }
+  Sibling sibling = 6;
 }
 
 enum TestEnum {
   UNSPECIFIED = 0;
   ONE = 1;
   TWO = 2;
+}
+
+message Sibling {
+  int32 field = 1;
 }
