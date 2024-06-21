@@ -1,5 +1,8 @@
+from typing import Any
+import pytest
+
 from enum import Enum, auto
-from tests.output_betterproto.simple import Test, TestEnum
+from tests.output_betterproto import simple as betterproto_simple_pb2
 
 from tests.output_reference.simple import simple_pb2
 
@@ -60,9 +63,9 @@ class OurTest:
         self.instance.enum_field = value.value
 
     @property
-    def int_variant(self) -> int | None:
+    def int_variant(self) -> int:
         if not self.instance.HasField("int_variant"):
-            return None
+            raise AttributeError()
 
         return self.instance.int_variant
 
@@ -71,15 +74,26 @@ class OurTest:
         self.instance.int_variant = value
 
     @property
-    def string_variant(self) -> str | None:
+    def string_variant(self) -> str:
         if not self.instance.HasField("string_variant"):
-            return None
+            raise AttributeError()
 
         return self.instance.string_variant
 
     @string_variant.setter
     def string_variant(self, value: str) -> None:
         self.instance.string_variant = value
+
+    # def __getattribute__(self, name: str, ) -> Any:
+    #     match name:
+    #         case "int_variant":
+    #             if not self.instance.HasField("int_variant"):
+    #                 raise AttributeError()
+    #             return self.int_variant
+    #         case "string_variant":
+    #             if not self.instance.HasField("string_variant"):
+    #                 raise AttributeError()
+    #             return self.string_variant
 
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
@@ -127,9 +141,29 @@ def test_can_get_and_set_oneof_fields():
     message = OurTest.parse(google_serialized)
 
     assert 123 == message.int_variant
-    assert None == message.string_variant
 
     message.string_variant = "test"
-
-    assert None == message.int_variant
     assert "test" == message.string_variant
+
+def test_raises_attribute_error_when_accessing_unset_oneof_fields():
+    google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    with pytest.raises(AttributeError):
+        message.string_variant
+
+    message.string_variant = "test"
+    with pytest.raises(AttributeError):
+        message.int_variant
+
+def test_can_match_over_oneof_fields():
+    google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    match message:
+        case OurTest(string_variant=value):
+            pytest.fail("Should not match over string variant when int variant is set")
+        case OurTest(int_variant=value):
+            assert 123 == value
+        case _:
+            pytest.fail("Should have matched over int variant")
