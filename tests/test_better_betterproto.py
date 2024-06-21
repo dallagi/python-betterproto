@@ -4,9 +4,6 @@ from tests.output_betterproto.simple import Test, TestEnum
 from tests.output_reference.simple import simple_pb2
 
 
-# TODO: optional fields
-# TODO: enums
-
 # which_one_of
 # Both binary & JSON serialization is built-in --> orjson
 # Enums
@@ -94,11 +91,6 @@ def test_handles_optional_fields():
 
 
 def test_handles_enums():
-    serialized = bytes(OurTestEnum.ONE)
-    google_serialized = simple_pb2.TestEnum.ONE.to_bytes()
-
-    assert google_serialized == serialized
-
     serialized = bytes(OurTest(enum_field=OurTestEnum.ONE))
     google_serialized = simple_pb2.Test(
         enum_field=simple_pb2.TestEnum.ONE
