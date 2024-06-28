@@ -9,5 +9,8 @@
   "nested": {
     "field": 123
   },
-  "repeated_field": [1, 2, 3]
+  "repeated_field": [1, 2, 3],
+  "repeated_complex_field": [
+    {"field": 123}
+  ]
 }

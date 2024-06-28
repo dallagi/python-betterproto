@@ -17,6 +17,7 @@ message Test {
   Sibling sibling = 6;
   Nested nested = 7;
   repeated int32 repeated_field = 8;
+  repeated Sibling repeated_complex_field = 9;
 }
 
 enum TestEnum {

@@ -39,6 +39,22 @@ class RepeatedFieldProxy(Generic[T]):
 
     def __eq__(self, other: RepeatedFieldProxy[T] | list[T]) -> bool:
         return self.instance == getattr(other, "instance", other)
+
+class RepeatedComplexFieldProxy(Generic[T]):
+    def __init__(self, initial_value: list[T]) -> None:
+        self.instance = initial_value
+
+    def append(self, value: T) -> None:
+        return self.instance.append(value.instance)
+
+    def __eq__(self, other: RepeatedComplexFieldProxy[T] | list[T]) -> bool:
+        if isinstance(other, RepeatedComplexFieldProxy):
+            return self.instance == other.instance
+        elif isinstance(other, list):
+            # TODO optimize
+            xxx = [x.instance for x in other]
+            return self.instance == xxx
+        raise Exception("weee")
         
 
 class OurSibling:
@@ -202,6 +218,17 @@ class OurTest:
     def repeated_field(self, value: list[int]) -> None:
         self.instance.repeated_field[:] = value
 
+    @property
+    def repeated_complex_field(self) -> RepeatedComplexFieldProxy[OurSibling]:
+        return RepeatedComplexFieldProxy(self.instance.repeated_complex_field)
+
+    @repeated_complex_field.setter
+    def repeated_complex_field(self, value: list[OurSibling]) -> None:
+        proto_value = [element.instance for element in value]
+        # works but what about dangling references?
+        del self.instance.repeated_complex_field[:]
+        self.instance.repeated_complex_field.extend(proto_value)
+
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
@@ -289,7 +316,6 @@ def test_handles_sibling_messages():
     message.sibling = OurSibling(field=111)
     assert 111 == message.sibling.field
 
-<<<<<<< HEAD
 def test_handles_nested_messages():
     google_serialized = simple_pb2.Test(nested=simple_pb2.Test.Nested(field=123)).SerializeToString()
     message = OurTest.parse(google_serialized)
@@ -314,7 +340,17 @@ def test_handles_repeated_fields():
     message = OurTest.parse(simple_pb2.Test().SerializeToString())
     assert [] == message.repeated_field
 
-=======
+def test_handles_repeated_complex_fields():
+    google_serialized = simple_pb2.Test(repeated_complex_field=[simple_pb2.Sibling(field=123)]).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    assert [OurSibling(field=123)] == message.repeated_complex_field
+
+    message.repeated_complex_field = [OurSibling(field=234)]
+    assert [OurSibling(field=234)] == message.repeated_complex_field
+
+    message = OurTest.parse(simple_pb2.Test().SerializeToString())
+    assert [] == message.repeated_field
 
 def test_stable_instance_in_nested_message():
     google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
@@ -325,4 +361,3 @@ def test_stable_instance_in_nested_message():
 
     assert sibling1 != sibling2
     assert sibling1.instance == sibling2.instance
->>>>>>> origin/poc-use-google-protobuf-as-backend
