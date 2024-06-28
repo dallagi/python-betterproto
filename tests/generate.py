@@ -201,6 +201,7 @@ def main():
         # compatibility code for python < 3.7
         asyncio.get_event_loop().run_until_complete(generate(whitelist, verbose))
 
+    print("IF THE ABOVE FAILS TRY: poetry install -E compiler")
 
 if __name__ == "__main__":
     main()
