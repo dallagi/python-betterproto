@@ -17,6 +17,11 @@ from tests.output_reference.simple import simple_pb2
 # Mypy type checking
 
 
+class Unique:
+    ...
+
+DEFAULT = Unique()
+
 class OurTestEnum(Enum):
     UNSPECIFIED = 0
     ONE = 1
@@ -68,6 +73,7 @@ class OurSibling:
 
         return result
 
+
 class OurTest:
     class OurNested:
         def __init__(
@@ -111,6 +117,10 @@ class OurTest:
         self.instance = simple_pb2.Test(field=field, enum_field=enum_field.value)
         if optional_field is not None:
             self.instance.optional_field = optional_field
+
+        # TODO:
+        # - parse classmethod? betterproto doesn't
+        # - how to set default values for nested objects 
 
     @classmethod
     def from_instance(cls, instance: simple_pb2.Test) -> Self:
@@ -279,6 +289,7 @@ def test_handles_sibling_messages():
     message.sibling = OurSibling(field=111)
     assert 111 == message.sibling.field
 
+<<<<<<< HEAD
 def test_handles_nested_messages():
     google_serialized = simple_pb2.Test(nested=simple_pb2.Test.Nested(field=123)).SerializeToString()
     message = OurTest.parse(google_serialized)
@@ -303,3 +314,15 @@ def test_handles_repeated_fields():
     message = OurTest.parse(simple_pb2.Test().SerializeToString())
     assert [] == message.repeated_field
 
+=======
+
+def test_stable_instance_in_nested_message():
+    google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    sibling1 = message.sibling
+    sibling2 = message.sibling
+
+    assert sibling1 != sibling2
+    assert sibling1.instance == sibling2.instance
+>>>>>>> origin/poc-use-google-protobuf-as-backend
