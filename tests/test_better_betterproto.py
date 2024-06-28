@@ -30,25 +30,25 @@ class OurTestEnum(Enum):
 T = TypeVar("T")
     
 # TODO make this a MutableSequence and add all necessary methods
-class RepeatedFieldProxy(Generic[T]):
+class RepeatedScalarFieldProxy(Generic[T]):
     def __init__(self, initial_value: list[T]) -> None:
         self.instance = initial_value
 
     def append(self, value: T) -> None:
         return self.instance.append(value)
 
-    def __eq__(self, other: RepeatedFieldProxy[T] | list[T]) -> bool:
+    def __eq__(self, other: RepeatedScalarFieldProxy[T] | list[T]) -> bool:
         return self.instance == getattr(other, "instance", other)
 
-class RepeatedComplexFieldProxy(Generic[T]):
+class RepeatedCompositeFieldProxy(Generic[T]):
     def __init__(self, initial_value: list[T]) -> None:
         self.instance = initial_value
 
     def append(self, value: T) -> None:
         return self.instance.append(value.instance)
 
-    def __eq__(self, other: RepeatedComplexFieldProxy[T] | list[T]) -> bool:
-        if isinstance(other, RepeatedComplexFieldProxy):
+    def __eq__(self, other: RepeatedCompositeFieldProxy[T] | list[T]) -> bool:
+        if isinstance(other, RepeatedCompositeFieldProxy):
             return self.instance == other.instance
         elif isinstance(other, list):
             # TODO optimize
@@ -211,16 +211,16 @@ class OurTest:
         self.instance.nested.CopyFrom(value.instance)
 
     @property
-    def repeated_field(self) -> RepeatedFieldProxy[int]:
-        return RepeatedFieldProxy(self.instance.repeated_field)
+    def repeated_field(self) -> RepeatedScalarFieldProxy[int]:
+        return RepeatedScalarFieldProxy(self.instance.repeated_field)
 
     @repeated_field.setter
     def repeated_field(self, value: list[int]) -> None:
         self.instance.repeated_field[:] = value
 
     @property
-    def repeated_complex_field(self) -> RepeatedComplexFieldProxy[OurSibling]:
-        return RepeatedComplexFieldProxy(self.instance.repeated_complex_field)
+    def repeated_complex_field(self) -> RepeatedCompositeFieldProxy[OurSibling]:
+        return RepeatedCompositeFieldProxy(self.instance.repeated_complex_field)
 
     @repeated_complex_field.setter
     def repeated_complex_field(self, value: list[OurSibling]) -> None:
