@@ -3,6 +3,10 @@ syntax = "proto3";
 package simple;
 
 message Test {
+  message Nested {
+    int32 field = 1;
+  }
+  
   int64 field = 1;
   optional int64 optional_field = 2;
   TestEnum enum_field = 3;
@@ -11,6 +15,7 @@ message Test {
     string string_variant = 5;
   }
   Sibling sibling = 6;
+  Nested nested = 7;
 }
 
 enum TestEnum {

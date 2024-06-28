@@ -5,5 +5,8 @@
   "intVariant": 123,
   "sibling": {
     "field": 123
+  },
+  "nested": {
+    "field": 123
   }
 }

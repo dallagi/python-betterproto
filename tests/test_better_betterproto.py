@@ -9,7 +9,6 @@ from tests.output_betterproto import simple as betterproto_simple_pb2
 from tests.output_reference.simple import simple_pb2
 
 
-# nested messages
 # Both binary & JSON serialization is built-in --> orjson
 # Enums
 # Dataclasses
@@ -23,6 +22,7 @@ class OurTestEnum(Enum):
     UNSPECIFIED = 0
     ONE = 1
     TWO = 2
+
 
 class OurSibling:
     def __init__(
@@ -57,6 +57,38 @@ class OurSibling:
         return result
 
 class OurTest:
+    class OurNested:
+        def __init__(
+            self,
+            field: int = 0
+        ) -> None:
+            self.instance = simple_pb2.Test.Nested(field=field)
+
+        @classmethod
+        def from_instance(cls, instance: simple_pb2.Test.Nested) -> Self:
+            obj = cls.__new__(cls)
+            obj.instance = instance
+
+            return obj
+
+        @property
+        def field(self) -> int:
+            return self.instance.field
+
+        @field.setter
+        def field(self, value: int) -> None:
+            self.instance.field = value
+
+        def __bytes__(self) -> bytes:
+            return self.instance.SerializeToString()
+
+        @classmethod
+        def parse(cls, binary_payload: bytes) -> Self:
+            result = cls()
+            result.instance.ParseFromString(binary_payload)
+
+            return result
+
     def __init__(
         self,
         field: int = 0,
@@ -131,6 +163,14 @@ class OurTest:
     @sibling.setter
     def sibling(self, value: OurSibling) -> None:
         self.instance.sibling.CopyFrom(value.instance)
+
+    @property
+    def nested(self) -> OurNested:
+        return self.OurNested.from_instance(self.instance.nested)
+
+    @nested.setter
+    def nested(self, value: OurNested) -> None:
+        self.instance.nested.CopyFrom(value.instance)
 
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
@@ -207,7 +247,7 @@ def test_can_match_over_oneof_fields():
         case _:
             pytest.fail("Should have matched over int variant")
 
-def test_handles_nested_messages():
+def test_handles_sibling_messages():
     google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
     message = OurTest.parse(google_serialized)
 
@@ -218,3 +258,15 @@ def test_handles_nested_messages():
 
     message.sibling = OurSibling(field=111)
     assert 111 == message.sibling.field
+
+def test_handles_nested_messages():
+    google_serialized = simple_pb2.Test(nested=simple_pb2.Test.Nested(field=123)).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    assert 123 == message.nested.field
+
+    message.nested.field = 234
+    assert 234 == message.nested.field
+
+    message.nested = OurTest.OurNested(field=111)
+    assert 111 == message.nested.field
