@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Any, Generic, MutableSequence, Self, TypeVar
 import pytest
 
 from enum import Enum, auto
@@ -10,7 +10,6 @@ from tests.output_reference.simple import simple_pb2
 
 
 # Both binary & JSON serialization is built-in --> orjson
-# Enums
 # Dataclasses
 # async/await
 # Timezone-aware datetime and timedelta objects
@@ -23,6 +22,19 @@ class OurTestEnum(Enum):
     ONE = 1
     TWO = 2
 
+T = TypeVar("T")
+    
+# TODO make this a MutableSequence and add all necessary methods
+class RepeatedFieldProxy(Generic[T]):
+    def __init__(self, initial_value: list[T]) -> None:
+        self.instance = initial_value
+
+    def append(self, value: T) -> None:
+        return self.instance.append(value)
+
+    def __eq__(self, other: RepeatedFieldProxy[T] | list[T]) -> bool:
+        return self.instance == getattr(other, "instance", other)
+        
 
 class OurSibling:
     def __init__(
@@ -172,6 +184,14 @@ class OurTest:
     def nested(self, value: OurNested) -> None:
         self.instance.nested.CopyFrom(value.instance)
 
+    @property
+    def repeated_field(self) -> RepeatedFieldProxy[int]:
+        return RepeatedFieldProxy(self.instance.repeated_field)
+
+    @repeated_field.setter
+    def repeated_field(self, value: list[int]) -> None:
+        self.instance.repeated_field[:] = value
+
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
@@ -270,3 +290,16 @@ def test_handles_nested_messages():
 
     message.nested = OurTest.OurNested(field=111)
     assert 111 == message.nested.field
+
+def test_handles_repeated_fields():
+    google_serialized = simple_pb2.Test(repeated_field=[1, 2, 3]).SerializeToString()
+    message = OurTest.parse(google_serialized)
+
+    assert [1, 2, 3] == message.repeated_field
+
+    message.repeated_field = [2, 3, 4]
+    assert [2, 3, 4] == message.repeated_field
+
+    message = OurTest.parse(simple_pb2.Test().SerializeToString())
+    assert [] == message.repeated_field
+

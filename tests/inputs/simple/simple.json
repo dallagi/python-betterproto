@@ -8,5 +8,6 @@
   },
   "nested": {
     "field": 123
-  }
+  },
+  "repeated_field": [1, 2, 3]
 }
