@@ -20,7 +20,7 @@ from tests.output_reference.simple import simple_pb2
 class Unique:
     ...
 
-DEFAULT = Unique()
+DEFAULT: Any = Unique()
 
 class OurTestEnum(Enum):
     UNSPECIFIED = 0
@@ -50,12 +50,11 @@ class RepeatedCompositeFieldProxy(Generic[T]):
     def __eq__(self, other: RepeatedCompositeFieldProxy[T] | list[T]) -> bool:
         if isinstance(other, RepeatedCompositeFieldProxy):
             return self.instance == other.instance
-        elif isinstance(other, list):
+        else:
             # TODO optimize
-            xxx = [x.instance for x in other]
-            return self.instance == xxx
-        raise Exception("weee")
-        
+            # TODO: T bound to class with "instance" attribute
+            return self.instance == [x.instance for x in other]
+
 
 class OurSibling:
     def __init__(
@@ -128,15 +127,24 @@ class OurTest:
         field: int = 0,
         optional_field: int | None = None,
         enum_field: OurTestEnum = OurTestEnum.UNSPECIFIED,
-            # add other fields
+        # if sibling is not nullable
+        sibling: OurSibling = DEFAULT,
+        # if sibling is nullable
+        # sibling: OurSibling | None = None
+        # add other fields
     ) -> None:
-        self.instance = simple_pb2.Test(field=field, enum_field=enum_field.value)
-        if optional_field is not None:
-            self.instance.optional_field = optional_field
+        self.instance = simple_pb2.Test(
+            field=field, 
+            enum_field=enum_field.value,
+            optional_field=optional_field,
+            # if sibiling is not nullable
+            sibling=OurSibling().instance if sibling is DEFAULT else sibling.instance,
+            # if sibling is nullable
+            # sibling=sibling.instance if sibling is not None else None
+        )
 
         # TODO:
         # - parse classmethod? betterproto doesn't
-        # - how to set default values for nested objects 
 
     @classmethod
     def from_instance(cls, instance: simple_pb2.Test) -> Self:
@@ -232,31 +240,34 @@ class OurTest:
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
 
-    @classmethod
-    def parse(cls, binary_payload: bytes) -> Self:
-        result = cls()
-        result.instance.ParseFromString(binary_payload)
+    def parse(self, binary_payload: bytes) -> Self:
+        self.instance.ParseFromString(binary_payload)
 
-        return result
-
+        return self
 
 def test_serializes_correctly():
+    # we need to pass an empty sibling to the google library explicitly:
+    # sibling default value is nullable 
+    # and the "null" value (which is implicitly the default) has a different representation 
+    # than the value obtained by calling the constructor without parameters 
+    # BUT in this case the "null" value is not admissible by definition (even though the google library doesn't check for that)
+    # therefore without passing the default-constructed object explicitly we wouldn't have binary equality
     serialized = bytes(OurTest(field=123))
-    google_serialized = simple_pb2.Test(field=123).SerializeToString()
+    google_serialized = simple_pb2.Test(field=123, sibling=simple_pb2.Sibling()).SerializeToString()
 
     assert google_serialized == serialized
 
 
 def test_handles_optional_fields():
     google_serialized_optional_set = simple_pb2.Test().SerializeToString()
-    message_optional_set = OurTest.parse(google_serialized_optional_set)
+    message_optional_set = OurTest().parse(google_serialized_optional_set)
 
     assert message_optional_set.optional_field is None
 
     google_serialized_optional_set = simple_pb2.Test(
         optional_field=123
     ).SerializeToString()
-    message_optional_set = OurTest.parse(google_serialized_optional_set)
+    message_optional_set = OurTest().parse(google_serialized_optional_set)
 
     assert 123 == message_optional_set.optional_field
 
@@ -264,7 +275,8 @@ def test_handles_optional_fields():
 def test_handles_enums():
     serialized = bytes(OurTest(enum_field=OurTestEnum.ONE))
     google_serialized = simple_pb2.Test(
-        enum_field=simple_pb2.TestEnum.ONE
+        enum_field=simple_pb2.TestEnum.ONE,
+        sibling=simple_pb2.Sibling()
     ).SerializeToString()
 
     assert google_serialized == serialized
@@ -272,7 +284,7 @@ def test_handles_enums():
 
 def test_can_get_and_set_oneof_fields():
     google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert 123 == message.int_variant
 
@@ -282,7 +294,7 @@ def test_can_get_and_set_oneof_fields():
 
 def test_raises_attribute_error_when_accessing_unset_oneof_fields():
     google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     with pytest.raises(AttributeError):
         message.string_variant
@@ -294,7 +306,7 @@ def test_raises_attribute_error_when_accessing_unset_oneof_fields():
 
 def test_can_match_over_oneof_fields():
     google_serialized = simple_pb2.Test(int_variant=123).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     match message:
         case OurTest(string_variant=value):
@@ -306,7 +318,7 @@ def test_can_match_over_oneof_fields():
 
 def test_handles_sibling_messages():
     google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert 123 == message.sibling.field
 
@@ -318,7 +330,7 @@ def test_handles_sibling_messages():
 
 def test_handles_nested_messages():
     google_serialized = simple_pb2.Test(nested=simple_pb2.Test.Nested(field=123)).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert 123 == message.nested.field
 
@@ -330,31 +342,31 @@ def test_handles_nested_messages():
 
 def test_handles_repeated_fields():
     google_serialized = simple_pb2.Test(repeated_field=[1, 2, 3]).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert [1, 2, 3] == message.repeated_field
 
     message.repeated_field = [2, 3, 4]
     assert [2, 3, 4] == message.repeated_field
 
-    message = OurTest.parse(simple_pb2.Test().SerializeToString())
+    message = OurTest().parse(simple_pb2.Test().SerializeToString())
     assert [] == message.repeated_field
 
 def test_handles_repeated_complex_fields():
     google_serialized = simple_pb2.Test(repeated_complex_field=[simple_pb2.Sibling(field=123)]).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert [OurSibling(field=123)] == message.repeated_complex_field
 
     message.repeated_complex_field = [OurSibling(field=234)]
     assert [OurSibling(field=234)] == message.repeated_complex_field
 
-    message = OurTest.parse(simple_pb2.Test().SerializeToString())
+    message = OurTest().parse(simple_pb2.Test().SerializeToString())
     assert [] == message.repeated_field
 
 def test_stable_instance_in_nested_message():
     google_serialized = simple_pb2.Test(sibling=simple_pb2.Sibling(field=123)).SerializeToString()
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     sibling1 = message.sibling
     sibling2 = message.sibling
