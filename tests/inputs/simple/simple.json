@@ -12,5 +12,8 @@
   "repeated_field": [1, 2, 3],
   "repeated_complex_field": [
     {"field": 123}
-  ]
+  ],
+  "map_field": {
+    "key1": {"field": 123}
+  }
 }

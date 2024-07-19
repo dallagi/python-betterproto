@@ -9,12 +9,13 @@ from tests.output_betterproto import simple as betterproto_simple_pb2
 from tests.output_reference.simple import simple_pb2
 
 
-# Both binary & JSON serialization is built-in --> orjson
+# maps
 # Dataclasses
 # async/await
 # Timezone-aware datetime and timedelta objects
 # Relative imports
 # Mypy type checking
+# Both binary & JSON serialization is built-in
 
 
 class Unique:
@@ -27,6 +28,7 @@ class OurTestEnum(Enum):
     ONE = 1
     TWO = 2
 
+K = TypeVar("K")
 T = TypeVar("T")
     
 # TODO make this a MutableSequence and add all necessary methods
@@ -60,6 +62,26 @@ class RepeatedCompositeFieldProxy(Generic[T]):
 
     def __getitem__(self, index) -> T:
         return self.wrapped_type.from_instance(self.instance[index])
+
+class MapCompositeFieldProxy(Generic[K, T]):
+    def __init__(self, initial_value: dict[K, T], wrapped_value_type: Type[T]) -> None:
+        self.instance = initial_value
+
+    def __eq__(self, other: MapCompositeFieldProxy[T] | dict[T]) -> bool:
+        if isinstance(other, MapCompositeFieldProxy):
+            return self.instance == other.instance
+        elif isinstance(other, dict):
+            return all(
+                key in self.instance and self.instance[key] == value.instance
+                for key, value in other.items()
+            )
+        raise Exception("weee")
+
+    def __getitem__(self, key):
+        return self.wrapped_value_type.from_instance(self.instance[key])
+
+    def __setitem__(self, key, value):
+        return self.instance.__setitem__(key, value.instance)
         
 
 class OurSibling:
@@ -241,10 +263,19 @@ class OurTest:
 
     @repeated_complex_field.setter
     def repeated_complex_field(self, value: list[OurSibling]) -> None:
-        proto_value = [element.instance for element in value]
         # works but what about dangling references?
         del self.instance.repeated_complex_field[:]
-        self.instance.repeated_complex_field.extend(proto_value)
+        self.instance.repeated_complex_field.extend(element.instance for element in value)
+
+    @property
+    def map_field(self) -> MapCompositeFieldProxy[str, OurSibling]:
+        return MapCompositeFieldProxy(self.instance.map_field, OurSibling)
+
+    @map_field.setter
+    def map_field(self, value: dict[str, OurSibling]) -> None:
+        # works but what about dangling references?
+        del self.instance.map_field
+        self.instance.map_field.update({k: v.instance for k, v in value.items()})
 
     def __bytes__(self) -> bytes:
         return self.instance.SerializeToString()
@@ -383,3 +414,10 @@ def test_stable_instance_in_nested_message():
 
     assert sibling1 != sibling2
     assert sibling1.instance == sibling2.instance
+
+def test_handles_maps():
+    google_serialized = simple_pb2.Test(map_field={"key": simple_pb2.Sibling(field=123)}).SerializeToString()
+    # TODO also test int keys
+    message = OurTest.parse(google_serialized)
+
+    assert {"key": OurSibling(field=123)} == message.map_field
