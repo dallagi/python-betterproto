@@ -40,9 +40,12 @@ class RepeatedScalarFieldProxy(Generic[T]):
     def __eq__(self, other: RepeatedScalarFieldProxy[T] | list[T]) -> bool:
         return self.instance == getattr(other, "instance", other)
 
+
+# TODO make this a MutableSequence and add all necessary methods
 class RepeatedCompositeFieldProxy(Generic[T]):
-    def __init__(self, initial_value: list[T]) -> None:
+    def __init__(self, initial_value: list[T], wrapped_type: Type[T]) -> None:
         self.instance = initial_value
+        self.wrapped_type = wrapped_type
 
     def append(self, value: T) -> None:
         return self.instance.append(value.instance)
@@ -55,6 +58,9 @@ class RepeatedCompositeFieldProxy(Generic[T]):
             # TODO: T bound to class with "instance" attribute
             return self.instance == [x.instance for x in other]
 
+    def __getitem__(self, index) -> T:
+        return self.wrapped_type.from_instance(self.instance[index])
+        
 
 class OurSibling:
     def __init__(
@@ -87,6 +93,9 @@ class OurSibling:
         result.instance.ParseFromString(binary_payload)
 
         return result
+
+    def __eq__(self, other: OurSibling) -> bool:
+        return self.instance == other.instance
 
 
 class OurTest:
@@ -228,7 +237,7 @@ class OurTest:
 
     @property
     def repeated_complex_field(self) -> RepeatedCompositeFieldProxy[OurSibling]:
-        return RepeatedCompositeFieldProxy(self.instance.repeated_complex_field)
+        return RepeatedCompositeFieldProxy(self.instance.repeated_complex_field, OurSibling)
 
     @repeated_complex_field.setter
     def repeated_complex_field(self, value: list[OurSibling]) -> None:
@@ -357,6 +366,7 @@ def test_handles_repeated_complex_fields():
     message = OurTest().parse(google_serialized)
 
     assert [OurSibling(field=123)] == message.repeated_complex_field
+    assert message.repeated_complex_field[0] == OurSibling(field=123)
 
     message.repeated_complex_field = [OurSibling(field=234)]
     assert [OurSibling(field=234)] == message.repeated_complex_field
