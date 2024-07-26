@@ -412,12 +412,14 @@ def test_stable_instance_in_nested_message():
     sibling1 = message.sibling
     sibling2 = message.sibling
 
-    assert sibling1 != sibling2
+    assert sibling1 is not sibling2
+    assert sibling1 == sibling2
     assert sibling1.instance == sibling2.instance
+    assert sibling1.instance is sibling2.instance
 
 def test_handles_maps():
     google_serialized = simple_pb2.Test(map_field={"key": simple_pb2.Sibling(field=123)}).SerializeToString()
     # TODO also test int keys
-    message = OurTest.parse(google_serialized)
+    message = OurTest().parse(google_serialized)
 
     assert {"key": OurSibling(field=123)} == message.map_field
