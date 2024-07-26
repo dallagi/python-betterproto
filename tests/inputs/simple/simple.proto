@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package simple;
 
 message Test {
@@ -19,6 +21,7 @@ message Test {
   repeated int32 repeated_field = 8;
   repeated Sibling repeated_complex_field = 9;
   map<string, Sibling> map_field = 10;
+  google.protobuf.Timestamp timestamp_field = 11;
 }
 
 enum TestEnum {

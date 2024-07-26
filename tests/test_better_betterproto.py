@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Generic, MutableSequence, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 import pytest
 
+from google.protobuf.timestamp_pb2 import Timestamp
 from enum import Enum, auto
 from tests.output_betterproto import simple as betterproto_simple_pb2
 
 from tests.output_reference.simple import simple_pb2
+from datetime import datetime, timezone
 
 
 # maps
@@ -223,6 +225,15 @@ class OurTest:
         self.instance.int_variant = value
 
     @property
+    def timestamp_field(self) -> int:
+        return self.instance.timestamp_field.ToDatetime()
+
+    @timestamp_field.setter
+    def timestamp_field(self, value: datetime) -> None:
+        utc_value = value.replace(tzinfo=timezone.utc)
+        self.instance.timestamp_field.CopyFrom(Timestamp(seconds=int(utc_value.timestamp()), nanos=utc_value.microsecond * 1000))
+
+    @property
     def string_variant(self) -> str:
         if not self.instance.HasField("string_variant"):
             raise AttributeError()
@@ -423,3 +434,14 @@ def test_handles_maps():
     message = OurTest().parse(google_serialized)
 
     assert {"key": OurSibling(field=123)} == message.map_field
+
+def test_handles_datetimes():
+    google_serialized = simple_pb2.Test(timestamp_field=Timestamp(seconds=0, nanos=0)).SerializeToString()
+    message = OurTest().parse(google_serialized)
+
+    print(dir(simple_pb2.Test(timestamp_field=Timestamp(seconds=0, nanos=0)).timestamp_field))
+
+    assert datetime(1970, 1, 1, 0, 0, 0, 0) == message.timestamp_field
+
+    message.timestamp_field = datetime(1970, 1, 2, 0, 0, 0, 0)
+    assert datetime(1970, 1, 2, 0, 0, 0, 0) == message.timestamp_field

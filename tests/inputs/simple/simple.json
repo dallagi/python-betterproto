@@ -15,5 +15,6 @@
   ],
   "map_field": {
     "key1": {"field": 123}
-  }
+  },
+  "timestamp_field": "2020-01-01T10:10:10"
 }
